@@ -32,11 +32,14 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
                 }
             };
 
-            var seriesId = info.ProviderIds.GetOrDefault(ProviderNames.AniDb);
+            var seriesId = info.ProviderIds.GetOrDefault(ProviderNames.AniDb)
+                ?? info.SeriesProviderIds.GetOrDefault(ProviderNames.AniDb);
             if (seriesId == null)
             {
                 return result;
             }
+
+            result.Item.ProviderIds.Add(ProviderNames.AniDb, seriesId);
 
             var seriesInfo = new SeriesInfo();
             seriesInfo.ProviderIds.Add(ProviderNames.AniDb, seriesId);
