@@ -27,6 +27,14 @@ namespace Jellyfin.Plugin.LocalAniDB
         /// </summary>
         public static readonly ConcurrentDictionary<string, SemaphoreSlim> SeriesLocks = new();
 
+        /// <summary>
+        /// Tracks which series IDs have already been downloaded in the current scan cycle.
+        /// Prevents redundant API calls when multiple providers (series, season, episode, image)
+        /// all request the same series data during one refresh pass.
+        /// Value is the UTC timestamp when the download completed.
+        /// </summary>
+        public static readonly ConcurrentDictionary<string, DateTime> SeriesDataFreshness = new();
+
         IHttpClientFactory _httpClientFactory;
         public Plugin(
             IApplicationPaths applicationPaths,

@@ -30,6 +30,7 @@ namespace Jellyfin.Plugin.LocalAniDB.Providers.AniDB.Metadata
 
         private static readonly int[] IgnoredTagIds = { 6, 22, 23, 60, 128, 129, 185, 216, 242, 255, 268, 269, 289 };
         private static readonly Regex AniDbUrlRegex = new Regex(@"https?://anidb.net/\w+(/[0-9]+)? \[(?<name>[^\]]*)\]", RegexOptions.Compiled);
+        private static readonly Regex _errorRegex = new(@"<error code=""[0-9]+"">[a-zA-Z]+</error>", RegexOptions.Compiled);
         private static ILogger<AniDbSeriesProvider> _logger;
         private readonly IApplicationPaths _appPaths;
 
@@ -167,13 +168,36 @@ namespace Jellyfin.Plugin.LocalAniDB.Providers.AniDB.Metadata
             var dataPath = GetSeriesDataPath(appPaths, seriesId);
             var seriesDataPath = Path.Combine(dataPath, SeriesDataFile);
 
+            // Skip download if this series was already fetched recently (within the last 30 minutes).
+            // This prevents redundant API calls when series, season, episode and image providers
+            // all request the same data during one refresh cycle.
+            if (Plugin.SeriesDataFreshness.TryGetValue(seriesId, out var lastFetched)
+                && (DateTime.UtcNow - lastFetched).TotalMinutes < 30
+                && File.Exists(seriesDataPath)
+                && new FileInfo(seriesDataPath).Length > 0)
+            {
+                return seriesDataPath;
+            }
+
             // Per-series lock to prevent concurrent writes to the same series.xml
             var seriesLock = Plugin.SeriesLocks.GetOrAdd(seriesId, _ => new SemaphoreSlim(1, 1));
             await seriesLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                // Always fetch from local API (no local cache age check — local API handles freshness)
+                // Double-check after acquiring the lock — another thread may have completed the download
+                if (Plugin.SeriesDataFreshness.TryGetValue(seriesId, out lastFetched)
+                    && (DateTime.UtcNow - lastFetched).TotalMinutes < 30
+                    && File.Exists(seriesDataPath)
+                    && new FileInfo(seriesDataPath).Length > 0)
+                {
+                    return seriesDataPath;
+                }
+
+                // Fetch from local API (local API handles upstream freshness)
                 await DownloadSeriesData(seriesId, seriesDataPath, appPaths.CachePath, cancellationToken).ConfigureAwait(false);
+
+                // Record successful download
+                Plugin.SeriesDataFreshness[seriesId] = DateTime.UtcNow;
             }
             finally
             {
@@ -437,7 +461,7 @@ namespace Jellyfin.Plugin.LocalAniDB.Providers.AniDB.Metadata
             }
         }
 
-        private string StripAniDbLinks(string text)
+        public static string StripAniDbLinks(string text)
         {
             return AniDbUrlRegex.Replace(text, "${name}");
         }
@@ -636,7 +660,7 @@ namespace Jellyfin.Plugin.LocalAniDB.Providers.AniDB.Metadata
             {
                 if (errorRegexMatch.Value.Contains("banned", StringComparison.OrdinalIgnoreCase))
                 {
-                    Plugin.Instance.RequestTracker.SetBanned();
+                    _logger.LogWarning("AniDB banned response detected for anime {Aid}. The local API handles ban cooldown automatically.", aid);
                 }
 
                 _logger.LogError("AniDB API returned an error for anime {Aid}: {Error}", aid, errorRegexMatch.Value);
