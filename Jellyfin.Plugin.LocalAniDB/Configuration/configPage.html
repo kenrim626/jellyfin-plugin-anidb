@@ -111,6 +111,11 @@
                             <input id="chkMaxDailyRequests" name="chkMaxDailyRequests" type="number" is="emby-input" min="1" />
                             <div class="fieldDescription">Soft limit shown in the usage bar above. Does not block requests, only serves as a visual warning. Default: 200.</div>
                         </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkStubCooldownMinutes">Stub Cooldown (minutes)</label>
+                            <input id="chkStubCooldownMinutes" name="chkStubCooldownMinutes" type="number" is="emby-input" min="0" />
+                            <div class="fieldDescription">How many minutes to wait before retrying a failed fetch (stub entry with no data). Set to 0 to disable (retry immediately). Default: 1.</div>
+                        </div>
                         <div>
                             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                                 <span>Save</span>
@@ -142,6 +147,7 @@
                             document.getElementById('chkAniDbReplaceGraves').checked = config.AniDbReplaceGraves;
                             document.getElementById('chkBanCooldownHours').value = config.BanCooldownHours;
                             document.getElementById('chkMaxDailyRequests').value = config.MaxDailyRequests;
+                            document.getElementById('chkStubCooldownMinutes').value = config.StubCooldownMinutes;
 
                             Dashboard.hideLoadingMsg();
                         });
@@ -167,6 +173,7 @@
                             config.AniDbReplaceGraves = document.getElementById('chkAniDbReplaceGraves').checked;
                             config.BanCooldownHours = document.getElementById('chkBanCooldownHours').value;
                             config.MaxDailyRequests = document.getElementById('chkMaxDailyRequests').value;
+                            config.StubCooldownMinutes = document.getElementById('chkStubCooldownMinutes').value;
 
                             ApiClient.updatePluginConfiguration(AniDBConfigurationPage.pluginUniqueId, config).then(function (result) {
                                 Dashboard.processPluginConfigurationUpdateResult(result);

@@ -84,7 +84,8 @@ namespace Jellyfin.Plugin.LocalAniDB
             return $"autoRefresh={config.AutoRefresh.ToString().ToLower()}" +
                    $"&rateLimitMs={config.AniDbRateLimit}" +
                    $"&maxDaily={config.MaxDailyRequests}" +
-                   $"&banCooldownHours={config.BanCooldownHours}";
+                   $"&banCooldownHours={config.BanCooldownHours}" +
+                   $"&stubCooldownMin={config.StubCooldownMinutes}";
         }
 
         /// <inheritdoc />

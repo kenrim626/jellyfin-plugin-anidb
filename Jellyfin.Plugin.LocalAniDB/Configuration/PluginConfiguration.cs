@@ -41,6 +41,7 @@ namespace Jellyfin.Plugin.LocalAniDB.Configuration
             AniDbReplaceGraves = true;
             BanCooldownHours = 24;
             MaxDailyRequests = 500;
+            StubCooldownMinutes = 1;
             LocalApiUrl = "http://localhost:5170";
             AutoRefresh = false;
         }
@@ -68,6 +69,11 @@ namespace Jellyfin.Plugin.LocalAniDB.Configuration
         public int BanCooldownHours { get; set; }
 
         public int MaxDailyRequests { get; set; }
+
+        /// <summary>
+        /// How many minutes to wait before retrying a stub (failed fetch with no data). 0 = disabled (retry immediately).
+        /// </summary>
+        public int StubCooldownMinutes { get; set; }
 
         public string LocalApiUrl { get; set; }
 
