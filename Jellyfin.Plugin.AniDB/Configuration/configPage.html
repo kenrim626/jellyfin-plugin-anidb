@@ -10,6 +10,21 @@
             <div data-role="content">
                 <div class="content-primary">
                     <form id="animeConfigurationForm">
+                        <div id="anidbStatusPanel" style="background: #1c1c1e; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                            <h3 style="margin: 0 0 12px 0; font-size: 1.1em;">AniDB API Usage</h3>
+                            <div style="margin-bottom: 8px;">
+                                <span>Requests (last 24h): </span>
+                                <strong id="statusRequestCount">-</strong> / <span id="statusMaxRequests">-</span>
+                            </div>
+                            <div style="background: #333; border-radius: 4px; height: 20px; overflow: hidden; margin-bottom: 12px;">
+                                <div id="statusProgressBar" style="height: 100%; background: #00a4dc; transition: width 0.3s; width: 0%;"></div>
+                            </div>
+                            <div id="statusPercentage" style="margin-bottom: 12px; font-size: 0.9em; color: #aaa;"></div>
+                            <div id="statusBanInfo" style="margin-bottom: 8px;"></div>
+                            <button type="button" id="btnClearBan" is="emby-button" class="raised emby-button" style="display: none; margin-top: 8px;">
+                                <span>Clear Ban</span>
+                            </button>
+                        </div>
                         <div class="selectContainer">
                             <label class="selectLabel" for="titleLanguage">Title Language</label>
                             <select is="emby-select" id="titleLanguage" name="titleLanguage" class="emby-select-withcolor emby-select">
@@ -66,7 +81,7 @@
                         <div class="inputContainer">
                             <label class="inputeLabel inputLabelUnfocused" for="chkAniDbRateLimit">AniDB Rate Limit</label>
                             <input id="chkAniDbRateLimit" name="chkAniDbRateLimit" type="number" is="emby-input" min="0" />
-                            <div class="fieldDescription">This will prevent IP bans for requesting data too quickly.</div>
+                            <div class="fieldDescription">Additional delay (in milliseconds) added between each AniDB API request, on top of the built-in rate limiter. Default: 2000ms (2 seconds).</div>
                         </div>
                         <div class="inputContainer">
                             <label class="inputeLabel inputLabelUnfocused" for="chkMaxCacheAge">Maximum Cache Age</label>
@@ -79,12 +94,15 @@
                                 <span>AniDB Replace Grave Characters</span>
                             </label>
                         </div>
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="chkEnableApiResponseCache" name="chkEnableApiResponseCache" type="checkbox" is="emby-checkbox" />
-                                <span>Enable API Response Cache</span>
-                            </label>
-                            <div class="fieldDescription">Cache raw AniDB API responses for 24 hours. Reduces API calls and avoids rate limiting on repeated scans.</div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkBanCooldownHours">Ban Cooldown Hours</label>
+                            <input id="chkBanCooldownHours" name="chkBanCooldownHours" type="number" is="emby-input" min="1" />
+                            <div class="fieldDescription">How many hours to block all AniDB requests after a ban is detected. Default: 24 hours.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkMaxDailyRequests">Max Daily Requests</label>
+                            <input id="chkMaxDailyRequests" name="chkMaxDailyRequests" type="number" is="emby-input" min="1" />
+                            <div class="fieldDescription">Soft limit shown in the usage bar above. Does not block requests, only serves as a visual warning. Default: 200.</div>
                         </div>
                         <div>
                             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
@@ -114,10 +132,13 @@
                             document.getElementById('chkAniDbRateLimit').value = config.AniDbRateLimit;
                             document.getElementById('chkMaxCacheAge').value = config.MaxCacheAge;
                             document.getElementById('chkAniDbReplaceGraves').checked = config.AniDbReplaceGraves;
-                            document.getElementById('chkEnableApiResponseCache').checked = config.EnableApiResponseCache;
+                            document.getElementById('chkBanCooldownHours').value = config.BanCooldownHours;
+                            document.getElementById('chkMaxDailyRequests').value = config.MaxDailyRequests;
 
                             Dashboard.hideLoadingMsg();
                         });
+
+                        AniDBConfigurationPage.loadStatus();
                     },
 
                     saveConfiguration: function () {
@@ -135,14 +156,59 @@
                             config.AniDbRateLimit = document.getElementById('chkAniDbRateLimit').value;
                             config.MaxCacheAge = document.getElementById('chkMaxCacheAge').value;
                             config.AniDbReplaceGraves = document.getElementById('chkAniDbReplaceGraves').checked;
-                            config.EnableApiResponseCache = document.getElementById('chkEnableApiResponseCache').checked;
+                            config.BanCooldownHours = document.getElementById('chkBanCooldownHours').value;
+                            config.MaxDailyRequests = document.getElementById('chkMaxDailyRequests').value;
 
                             ApiClient.updatePluginConfiguration(AniDBConfigurationPage.pluginUniqueId, config).then(function (result) {
                                 Dashboard.processPluginConfigurationUpdateResult(result);
                             });
                         });
                     },
+
+                    loadStatus: function () {
+                        ApiClient.getJSON(ApiClient.getUrl('AniDB/Status')).then(function (status) {
+                            var count = status.RequestsLast24h;
+                            var max = status.MaxDailyRequests;
+                            var pct = max > 0 ? Math.min(Math.round((count / max) * 100), 100) : 0;
+
+                            document.getElementById('statusRequestCount').textContent = count;
+                            document.getElementById('statusMaxRequests').textContent = max;
+                            document.getElementById('statusPercentage').textContent = pct + '% of daily limit used';
+
+                            var bar = document.getElementById('statusProgressBar');
+                            bar.style.width = pct + '%';
+                            if (pct >= 90) {
+                                bar.style.background = '#cc3333';
+                            } else if (pct >= 70) {
+                                bar.style.background = '#cc8833';
+                            } else {
+                                bar.style.background = '#00a4dc';
+                            }
+
+                            var banInfo = document.getElementById('statusBanInfo');
+                            var clearBtn = document.getElementById('btnClearBan');
+                            if (status.IsBanned) {
+                                var since = new Date(status.BannedSince).toLocaleString();
+                                var until = new Date(status.EstimatedUnban).toLocaleString();
+                                banInfo.innerHTML = '<span style="color: #cc3333; font-weight: bold;">&#9888; IP Banned</span>' +
+                                    '<br>Banned since: ' + since +
+                                    '<br>Estimated unban: ' + until;
+                                clearBtn.style.display = 'inline-block';
+                            } else {
+                                banInfo.innerHTML = '<span style="color: #4caf50;">&#10003; Not banned</span>';
+                                clearBtn.style.display = 'none';
+                            }
+                        }).catch(function () {
+                            document.getElementById('statusBanInfo').textContent = 'Unable to load status';
+                        });
+                    },
                 };
+
+                document.getElementById('btnClearBan').addEventListener('click', function () {
+                    ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('AniDB/ClearBan') }).then(function () {
+                        AniDBConfigurationPage.loadStatus();
+                    });
+                });
 
                 document.getElementById('animeConfigurationPage').addEventListener('pageshow', function () {
                     AniDBConfigurationPage.loadConfiguration();

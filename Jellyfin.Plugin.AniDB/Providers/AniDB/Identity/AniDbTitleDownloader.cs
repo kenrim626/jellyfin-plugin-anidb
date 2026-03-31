@@ -92,9 +92,11 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Identity
         /// <returns></returns>
         private static async Task DownloadTitles_static(string titlesFile)
         {
+            Plugin.Instance.RequestTracker.ThrowIfBanned();
             var httpClient = Plugin.Instance.GetHttpClient();
             await AniDbSeriesProvider.RequestLimiter.Tick().ConfigureAwait(false);
             await Task.Delay(Plugin.Instance.Configuration.AniDbRateLimit).ConfigureAwait(false);
+            Plugin.Instance.RequestTracker.RecordRequest();
             using (var stream = await httpClient.GetStreamAsync(TitlesUrl).ConfigureAwait(false))
             using (var unzipped = new GZipStream(stream, CompressionMode.Decompress))
             using (var writer = File.Open(titlesFile, FileMode.Create, FileAccess.Write))

@@ -29,7 +29,10 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
         public async Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
         {
+            Plugin.Instance.RequestTracker.ThrowIfBanned();
             await AniDbSeriesProvider.RequestLimiter.Tick().ConfigureAwait(false);
+            await Task.Delay(Plugin.Instance.Configuration.AniDbRateLimit).ConfigureAwait(false);
+            Plugin.Instance.RequestTracker.RecordRequest();
             var httpClient = Plugin.Instance.GetHttpClient();
 
             return await httpClient.GetAsync(url).ConfigureAwait(false);

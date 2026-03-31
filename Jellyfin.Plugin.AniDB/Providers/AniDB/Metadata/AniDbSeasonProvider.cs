@@ -16,9 +16,9 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
     {
         private readonly AniDbSeriesProvider _seriesProvider;
 
-        public AniDbSeasonProvider(IApplicationPaths appPaths, ILogger<AniDbApiResponseCache> cacheLogger)
+        public AniDbSeasonProvider(IApplicationPaths appPaths, ILogger<AniDbSeriesProvider> seriesLogger)
         {
-            _seriesProvider = new AniDbSeriesProvider(appPaths, cacheLogger);
+            _seriesProvider = new AniDbSeriesProvider(appPaths, seriesLogger);
         }
 
         public async Task<MetadataResult<Season>> GetMetadata(SeasonInfo info, CancellationToken cancellationToken)

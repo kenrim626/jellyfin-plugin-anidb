@@ -32,10 +32,10 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
         // AniDB has very low request rate limits, a minimum of 2 seconds between requests, and an average of 4 seconds between requests
         public static readonly RateLimiter RequestLimiter = new RateLimiter(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(5));
-        private static AniDbApiResponseCache _apiResponseCache;
         private static readonly int[] IgnoredTagIds = { 6, 22, 23, 60, 128, 129, 185, 216, 242, 255, 268, 269, 289 };
         private static readonly Regex AniDbUrlRegex = new Regex(@"https?://anidb.net/\w+(/[0-9]+)? \[(?<name>[^\]]*)\]", RegexOptions.Compiled);
         private static readonly Regex _errorRegex = new(@"<error code=""[0-9]+"">[a-zA-Z]+</error>", RegexOptions.Compiled);
+        private static ILogger<AniDbSeriesProvider> _logger;
         private readonly IApplicationPaths _appPaths;
 
         private readonly Dictionary<string, PersonKind> _typeMappings = new()
@@ -45,11 +45,11 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
             {"Chief Animation Direction", PersonKind.Director}
         };
 
-        public AniDbSeriesProvider(IApplicationPaths appPaths, ILogger<AniDbApiResponseCache> cacheLogger)
+        public AniDbSeriesProvider(IApplicationPaths appPaths, ILogger<AniDbSeriesProvider> logger)
         {
             _appPaths = appPaths;
+            _logger = logger;
             TitleMatcher = AniDbTitleMatcher.DefaultInstance;
-            _apiResponseCache = new AniDbApiResponseCache(appPaths.CachePath, cacheLogger);
             Current = this;
         }
 
@@ -166,9 +166,12 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
             var seriesDataPath = Path.Combine(dataPath, SeriesDataFile);
             var fileInfo = new FileInfo(seriesDataPath);
 
-            // download series data if not present or out of date
-            if (!fileInfo.Exists || DateTime.UtcNow - fileInfo.LastWriteTimeUtc > TimeSpan.FromDays(Plugin.Instance.Configuration.MaxCacheAge))
+            // download series data if not present, empty (corrupt) and retryable, or out of date
+            var tracker = Plugin.Instance.RequestTracker;
+            var isEmptyAndRetryable = fileInfo.Exists && fileInfo.Length == 0 && tracker.CanRetryForId(seriesId);
+            if (!fileInfo.Exists || isEmptyAndRetryable || DateTime.UtcNow - fileInfo.LastWriteTimeUtc > TimeSpan.FromDays(Plugin.Instance.Configuration.MaxCacheAge))
             {
+                tracker.RecordAttemptForId(seriesId);
                 await DownloadSeriesData(seriesId, seriesDataPath, appPaths.CachePath, cancellationToken).ConfigureAwait(false);
             }
 
@@ -177,6 +180,19 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
         private async Task FetchSeriesInfo(MetadataResult<Series> result, string seriesDataPath, string preferredMetadataLangauge)
         {
+            var fileInfo = new FileInfo(seriesDataPath);
+            if (!fileInfo.Exists)
+            {
+                _logger.LogError("Series data file not found at {Path}, this should not happen after a successful download", seriesDataPath);
+                return;
+            }
+
+            if (fileInfo.Length == 0)
+            {
+                _logger.LogWarning("Series data file is empty (possibly corrupt) at {Path}, skipping metadata fetch", seriesDataPath);
+                return;
+            }
+
             var series = result.Item;
             var settings = new XmlReaderSettings
             {
@@ -575,31 +591,53 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
             DeleteXmlFiles(directory);
 
-            async Task<string> FetchFromApi()
+            Plugin.Instance.RequestTracker.ThrowIfBanned();
+
+            var httpClient = Plugin.Instance.GetHttpClient();
+            var url = string.Format(SeriesQueryUrl, ClientName, aid);
+
+            await RequestLimiter.Tick().ConfigureAwait(false);
+            await Task.Delay(Plugin.Instance.Configuration.AniDbRateLimit).ConfigureAwait(false);
+
+            Plugin.Instance.RequestTracker.RecordRequest();
+            using var response = await httpClient.GetAsync(url).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
             {
-                var httpClient = Plugin.Instance.GetHttpClient();
-                var url = string.Format(SeriesQueryUrl, ClientName, aid);
-
-                await RequestLimiter.Tick().ConfigureAwait(false);
-                await Task.Delay(Plugin.Instance.Configuration.AniDbRateLimit).ConfigureAwait(false);
-
-                using var response = await httpClient.GetAsync(url).ConfigureAwait(false);
-                using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-                using var reader = new StreamReader(stream, Encoding.UTF8, true);
-
-                var text = await reader.ReadToEndAsync().ConfigureAwait(false);
-                text = text.Replace("&#x0;", "");
-
-                var errorRegexMatch = _errorRegex.Match(text);
-                if (errorRegexMatch.Success)
+                if ((int)response.StatusCode >= 500)
                 {
-                    throw new Exception("AniDB API error " + errorRegexMatch.Value);
+                    Plugin.Instance.RequestTracker.SetBanned();
                 }
 
-                return text;
+                _logger.LogError("AniDB API request for anime {Aid} failed with HTTP {StatusCode}", aid, response.StatusCode);
+                throw new Exception($"AniDB API request failed with HTTP {(int)response.StatusCode} {response.StatusCode}");
             }
 
-            var text = await _apiResponseCache.GetOrFetchAnimeDataAsync(aid, FetchFromApi, cancellationToken).ConfigureAwait(false);
+            using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var reader = new StreamReader(stream, Encoding.UTF8, true);
+
+            var text = await reader.ReadToEndAsync().ConfigureAwait(false);
+            text = text.Replace("&#x0;", "");
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                Plugin.Instance.RequestTracker.SetBanned();
+                _logger.LogError("AniDB API returned an empty response for anime {Aid}. This may indicate an IP ban", aid);
+                throw new Exception($"AniDB API returned an empty response for anime {aid}");
+            }
+
+            if (!text.TrimStart().StartsWith("<", StringComparison.Ordinal))
+            {
+                _logger.LogError("AniDB API returned non-XML response for anime {Aid}: {ResponsePreview}", aid, text.Substring(0, Math.Min(text.Length, 200)));
+                throw new Exception($"AniDB API returned non-XML response for anime {aid}");
+            }
+
+            var errorRegexMatch = _errorRegex.Match(text);
+            if (errorRegexMatch.Success)
+            {
+                _logger.LogError("AniDB API returned an error for anime {Aid}: {Error}", aid, errorRegexMatch.Value);
+                throw new Exception("AniDB API error " + errorRegexMatch.Value);
+            }
 
             using (var file = File.Open(seriesDataPath, FileMode.Create, FileAccess.Write))
             using (var writer = new StreamWriter(file))

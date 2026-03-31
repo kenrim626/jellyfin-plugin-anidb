@@ -40,7 +40,8 @@ namespace Jellyfin.Plugin.AniDB.Configuration
             AniDbRateLimit = 2000;
             MaxCacheAge = 7;
             AniDbReplaceGraves = true;
-            EnableApiResponseCache = true;
+            BanCooldownHours = 24;
+            MaxDailyRequests = 200;
         }
 
         public TitlePreferenceType TitlePreference { get; set; }
@@ -65,6 +66,8 @@ namespace Jellyfin.Plugin.AniDB.Configuration
 
         public bool AniDbReplaceGraves { get; set; }
 
-        public bool EnableApiResponseCache { get; set; }
+        public int BanCooldownHours { get; set; }
+
+        public int MaxDailyRequests { get; set; }
     }
 }

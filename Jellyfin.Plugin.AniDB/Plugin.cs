@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Jellyfin.Plugin.AniDB.Configuration;
+using Jellyfin.Plugin.AniDB.Providers.AniDB;
 using Jellyfin.Plugin.AniDB.Providers.AniDB.Identity;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
@@ -21,11 +22,14 @@ namespace Jellyfin.Plugin.AniDB
             IXmlSerializer xmlSerializer,
             ILogger<AniDbTitleMatcher> matcherLogger,
             ILogger<AniDbTitleDownloader> downloaderLogger,
+            ILogger<AniDbRequestTracker> trackerLogger,
             IHttpClientFactory httpClientFactory)
             : base(applicationPaths, xmlSerializer)
         {
             Instance = this;
             _httpClientFactory = httpClientFactory;
+
+            RequestTracker = new AniDbRequestTracker(applicationPaths.DataPath, trackerLogger);
 
             AniDbTitleMatcher.DefaultInstance = new AniDbTitleMatcher(
                 matcherLogger,
@@ -47,6 +51,8 @@ namespace Jellyfin.Plugin.AniDB
         public override Guid Id => Guid.Parse(Constants.PluginGuid);
 
         public static Plugin Instance { get; private set; }
+
+        public AniDbRequestTracker RequestTracker { get; private set; }
 
         /// <inheritdoc />
         public IEnumerable<PluginPageInfo> GetPages()
