@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using Jellyfin.Plugin.LocalAniDB.Configuration;
+using Jellyfin.Plugin.LocalAniDB.Pipeline;
 using Jellyfin.Plugin.LocalAniDB.Providers.AniDB.Identity;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
@@ -35,13 +36,16 @@ namespace Jellyfin.Plugin.LocalAniDB
         /// </summary>
         public static readonly ConcurrentDictionary<string, DateTime> SeriesDataFreshness = new();
 
+        public static PipelineStateService PipelineState { get; private set; }
+
         IHttpClientFactory _httpClientFactory;
         public Plugin(
             IApplicationPaths applicationPaths,
             IXmlSerializer xmlSerializer,
             ILogger<AniDbTitleMatcher> matcherLogger,
             ILogger<AniDbTitleDownloader> downloaderLogger,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            ILogger<Plugin> pluginLogger)
             : base(applicationPaths, xmlSerializer)
         {
             Instance = this;
@@ -50,6 +54,8 @@ namespace Jellyfin.Plugin.LocalAniDB
             AniDbTitleMatcher.DefaultInstance = new AniDbTitleMatcher(
                 matcherLogger,
                 new AniDbTitleDownloader(downloaderLogger, applicationPaths));
+
+            PipelineState = new PipelineStateService(applicationPaths.DataPath, pluginLogger);
         }
 
         public HttpClient GetHttpClient() {

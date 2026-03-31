@@ -72,5 +72,11 @@ namespace Jellyfin.Plugin.LocalAniDB.Configuration
         public string LocalApiUrl { get; set; }
 
         public bool AutoRefresh { get; set; }
+
+        public bool EnablePipelineTasks { get; set; } = true;
+        public int PipelineDetectIntervalHours { get; set; } = 6;
+        public int PipelineClassifyIntervalMinutes { get; set; } = 30;
+        public int PipelineFetchIntervalMinutes { get; set; } = 15;
+        public int PipelineApplyIntervalMinutes { get; set; } = 10;
     }
 }
