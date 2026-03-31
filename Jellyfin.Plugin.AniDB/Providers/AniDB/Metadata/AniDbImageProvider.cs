@@ -50,7 +50,16 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
             if (!string.IsNullOrEmpty(aniDbId))
             {
-                var seriesDataPath = await AniDbSeriesProvider.GetSeriesData(_appPaths, aniDbId, cancellationToken);
+                // Use deterministic path to avoid triggering a full download cycle
+                var seriesFolder = AniDbSeriesProvider.GetSeriesDataPath(_appPaths, aniDbId);
+                var seriesDataPath = Path.Combine(seriesFolder, "series.xml");
+
+                if (!File.Exists(seriesDataPath) || new FileInfo(seriesDataPath).Length == 0)
+                {
+                    // Data not cached yet — trigger one download
+                    seriesDataPath = await AniDbSeriesProvider.GetSeriesData(_appPaths, aniDbId, cancellationToken);
+                }
+
                 var imageUrl = await FindImageUrl(seriesDataPath).ConfigureAwait(false);
 
                 if (!string.IsNullOrEmpty(imageUrl))

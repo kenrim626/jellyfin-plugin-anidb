@@ -121,8 +121,22 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
             return imageProvider.GetImageResponse(url, cancellationToken);
         }
 
+        /// <summary>
+        /// Returns the series cache folder, using the deterministic path directly.
+        /// Only calls GetSeriesData (which may download from the API) if the folder doesn't exist yet.
+        /// </summary>
         private async Task<string> FindSeriesFolder(string seriesId, CancellationToken cancellationToken)
         {
+            var seriesFolder = AniDbSeriesProvider.GetSeriesDataPath(_configurationManager.ApplicationPaths, seriesId);
+
+            // If the folder already has a series.xml, skip the potentially expensive download cycle
+            var seriesXml = Path.Combine(seriesFolder, "series.xml");
+            if (File.Exists(seriesXml) && new FileInfo(seriesXml).Length > 0)
+            {
+                return seriesFolder;
+            }
+
+            // Fallback: data hasn't been downloaded yet — trigger one download
             var seriesDataPath = await AniDbSeriesProvider.GetSeriesData(_configurationManager.ApplicationPaths, seriesId, cancellationToken).ConfigureAwait(false);
             return Path.GetDirectoryName(seriesDataPath);
         }

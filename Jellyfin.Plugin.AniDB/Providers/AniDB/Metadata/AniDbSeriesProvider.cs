@@ -432,7 +432,7 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
             }
         }
 
-        private string StripAniDbLinks(string text)
+        public static string StripAniDbLinks(string text)
         {
             return AniDbUrlRegex.Replace(text, "${name}");
         }
