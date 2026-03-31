@@ -1,0 +1,233 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>LocalAniDB</title>
+</head>
+<body>
+        <div id="animeConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+            <div data-role="content">
+                <div class="content-primary">
+                    <form id="animeConfigurationForm">
+                        <div id="anidbStatusPanel" style="background: #1c1c1e; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                            <h3 style="margin: 0 0 12px 0; font-size: 1.1em;">AniDB API Usage</h3>
+                            <div style="margin-bottom: 8px;">
+                                <span>Requests (last 24h): </span>
+                                <strong id="statusRequestCount">-</strong> / <span id="statusMaxRequests">-</span>
+                            </div>
+                            <div style="background: #333; border-radius: 4px; height: 20px; overflow: hidden; margin-bottom: 12px;">
+                                <div id="statusProgressBar" style="height: 100%; background: #00a4dc; transition: width 0.3s; width: 0%;"></div>
+                            </div>
+                            <div id="statusPercentage" style="margin-bottom: 12px; font-size: 0.9em; color: #aaa;"></div>
+                            <div id="statusBanInfo" style="margin-bottom: 8px;"></div>
+                            <button type="button" id="btnClearBan" is="emby-button" class="raised emby-button" style="display: none; margin-top: 8px;">
+                                <span>Clear Ban</span>
+                            </button>
+                        </div>
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="titleLanguage">Title Language</label>
+                            <select is="emby-select" id="titleLanguage" name="titleLanguage" class="emby-select-withcolor emby-select">
+                                <option id="optLanguageLocalized" value="Localized">Localized</option>
+                                <option id="optLanguageJapanese" value="Japanese">Japanese</option>
+                                <option id="optLanguageJapaneseRomaji" value="JapaneseRomaji">Romaji</option>
+                            </select>
+                        </div>
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="originalTitleLanguage">Original Title Language</label>
+                            <select is="emby-select" id="originalTitleLanguage" name="originalTitleLanguage" class="emby-select-withcolor emby-select">
+                                <option id="optLanguageLocalized" value="Localized">Localized</option>
+                                <option id="optLanguageJapanese" value="Japanese">Japanese</option>
+                                <option id="optLanguageJapaneseRomaji" value="JapaneseRomaji">Romaji</option>
+                            </select>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkTitleSimilarityThreshold">Title Similarity Threshold</label>
+                            <input id="chkTitleSimilarityThreshold" name="chkTitleSimilarityThreshold" type="number" is="emby-input" min="0" />
+                            <div class="fieldDescription">Set this to zero to only automatically match if the title of the show is exactly the same. A value of one means that one character can be inserted or deleted.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="chkIgnoreSeason" name="chkIgnoreSeason" type="checkbox" is="emby-checkbox" />
+                                <span>Ignore Season</span>
+                            </label>
+                            <div class="fieldDescription">AniDB doesn't support seasons. If checked, it will treat every season like season one, except for specials.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkMaxGenres">Max Genres</label>
+                            <input id="chkMaxGenres" name="chkMaxGenres" type="number" is="emby-input" min="0" />
+                            <div class="fieldDescription">Set this to zero to remove any limit.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="chkTitleCaseGenres" name="chkTitleCaseGenres" type="checkbox" is="emby-checkbox" />
+                                <span>Title Case Genres</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="chkTidyGenres" name="chkTidyGenres" type="checkbox" is="emby-checkbox" />
+                                <span>Tidy Genre List</span>
+                            </label>
+                        </div>
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="animeDefaultGenre">Anime Default Genre Name</label>
+                            <select is="emby-select" id="animeDefaultGenre" name="animeDefaultGenre" class="emby-select-withcolor emby-select">
+                                <option id="optDefaultGenreNone" value="None">None</option>
+                                <option id="optDefaultGenreAnime" value="Anime">Anime</option>
+                                <option id="optDefaultGenreAnimation" value="Animation">Animation</option>
+                            </select>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="txtLocalApiUrl">Local API URL</label>
+                            <input id="txtLocalApiUrl" name="txtLocalApiUrl" type="text" is="emby-input" />
+                            <div class="fieldDescription">URL of the AniDB Local API service. Default: http://localhost:5170</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="chkAutoRefresh" name="chkAutoRefresh" type="checkbox" is="emby-checkbox" />
+                                <span>Auto-Refresh Cached Data</span>
+                            </label>
+                            <div class="fieldDescription">When disabled (default), the local API returns cached data immediately without contacting AniDB. When enabled, it will attempt to refresh data from AniDB if the cache is older than 24 hours.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkAniDbRateLimit">AniDB Rate Limit</label>
+                            <input id="chkAniDbRateLimit" name="chkAniDbRateLimit" type="number" is="emby-input" min="0" />
+                            <div class="fieldDescription">Additional delay (in milliseconds) added between each AniDB API request, on top of the built-in rate limiter. Default: 2000ms (2 seconds).</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="chkAniDbReplaceGraves" name="chkAniDbReplaceGraves" type="checkbox" is="emby-checkbox" />
+                                <span>AniDB Replace Grave Characters</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkBanCooldownHours">Ban Cooldown Hours</label>
+                            <input id="chkBanCooldownHours" name="chkBanCooldownHours" type="number" is="emby-input" min="1" />
+                            <div class="fieldDescription">How many hours to block all AniDB requests after a ban is detected. Default: 24 hours.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputeLabel inputLabelUnfocused" for="chkMaxDailyRequests">Max Daily Requests</label>
+                            <input id="chkMaxDailyRequests" name="chkMaxDailyRequests" type="number" is="emby-input" min="1" />
+                            <div class="fieldDescription">Soft limit shown in the usage bar above. Does not block requests, only serves as a visual warning. Default: 200.</div>
+                        </div>
+                        <div>
+                            <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                                <span>Save</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <script type="text/javascript">
+                var AniDBConfigurationPage = {
+                    pluginUniqueId: "b3c3b8fe-bb39-5632-b75b-74e97012f357",
+
+                    loadConfiguration: function () {
+                        Dashboard.showLoadingMsg();
+
+                        ApiClient.getPluginConfiguration(AniDBConfigurationPage.pluginUniqueId).then(function (config) {
+                            document.getElementById('titleLanguage').value = config.TitlePreference;
+                            document.getElementById('originalTitleLanguage').value = config.OriginalTitlePreference;
+                            document.getElementById('chkIgnoreSeason').checked = config.IgnoreSeason;
+                            document.getElementById('chkTitleSimilarityThreshold').value = config.TitleSimilarityThreshold;
+                            document.getElementById('chkMaxGenres').value = config.MaxGenres;
+                            document.getElementById('chkTitleCaseGenres').checked = config.TitleCaseGenres;
+                            document.getElementById('chkTidyGenres').checked = config.TidyGenreList;
+                            document.getElementById('animeDefaultGenre').value = config.AnimeDefaultGenre;
+                            document.getElementById('txtLocalApiUrl').value = config.LocalApiUrl;
+                            document.getElementById('chkAutoRefresh').checked = config.AutoRefresh;
+                            document.getElementById('chkAniDbRateLimit').value = config.AniDbRateLimit;
+                            document.getElementById('chkAniDbReplaceGraves').checked = config.AniDbReplaceGraves;
+                            document.getElementById('chkBanCooldownHours').value = config.BanCooldownHours;
+                            document.getElementById('chkMaxDailyRequests').value = config.MaxDailyRequests;
+
+                            Dashboard.hideLoadingMsg();
+                        });
+
+                        AniDBConfigurationPage.loadStatus();
+                    },
+
+                    saveConfiguration: function () {
+                        Dashboard.showLoadingMsg();
+
+                        ApiClient.getPluginConfiguration(AniDBConfigurationPage.pluginUniqueId).then(function (config) {
+                            config.TitlePreference = document.getElementById('titleLanguage').value;
+                            config.OriginalTitlePreference = document.getElementById('originalTitleLanguage').value;
+                            config.IgnoreSeason = document.getElementById('chkIgnoreSeason').checked;
+                            config.TitleSimilarityThreshold = document.getElementById('chkTitleSimilarityThreshold').value;
+                            config.MaxGenres = document.getElementById('chkMaxGenres').value;
+                            config.TitleCaseGenres = document.getElementById('chkTitleCaseGenres').checked;
+                            config.TidyGenreList = document.getElementById('chkTidyGenres').checked;
+                            config.AnimeDefaultGenre = document.getElementById('animeDefaultGenre').value;
+                            config.LocalApiUrl = document.getElementById('txtLocalApiUrl').value;
+                            config.AutoRefresh = document.getElementById('chkAutoRefresh').checked;
+                            config.AniDbRateLimit = document.getElementById('chkAniDbRateLimit').value;
+                            config.AniDbReplaceGraves = document.getElementById('chkAniDbReplaceGraves').checked;
+                            config.BanCooldownHours = document.getElementById('chkBanCooldownHours').value;
+                            config.MaxDailyRequests = document.getElementById('chkMaxDailyRequests').value;
+
+                            ApiClient.updatePluginConfiguration(AniDBConfigurationPage.pluginUniqueId, config).then(function (result) {
+                                Dashboard.processPluginConfigurationUpdateResult(result);
+                            });
+                        });
+                    },
+
+                    loadStatus: function () {
+                        ApiClient.getJSON(ApiClient.getUrl('LocalAniDB/Status')).then(function (status) {
+                            var count = status.RequestsLast24h;
+                            var max = status.MaxDailyRequests;
+                            var pct = max > 0 ? Math.min(Math.round((count / max) * 100), 100) : 0;
+
+                            document.getElementById('statusRequestCount').textContent = count;
+                            document.getElementById('statusMaxRequests').textContent = max;
+                            document.getElementById('statusPercentage').textContent = pct + '% of daily limit used';
+
+                            var bar = document.getElementById('statusProgressBar');
+                            bar.style.width = pct + '%';
+                            if (pct >= 90) {
+                                bar.style.background = '#cc3333';
+                            } else if (pct >= 70) {
+                                bar.style.background = '#cc8833';
+                            } else {
+                                bar.style.background = '#00a4dc';
+                            }
+
+                            var banInfo = document.getElementById('statusBanInfo');
+                            var clearBtn = document.getElementById('btnClearBan');
+                            if (status.IsBanned) {
+                                var since = new Date(status.BannedSince).toLocaleString();
+                                var until = new Date(status.EstimatedUnban).toLocaleString();
+                                banInfo.innerHTML = '<span style="color: #cc3333; font-weight: bold;">&#9888; IP Banned</span>' +
+                                    '<br>Banned since: ' + since +
+                                    '<br>Estimated unban: ' + until;
+                                clearBtn.style.display = 'inline-block';
+                            } else {
+                                banInfo.innerHTML = '<span style="color: #4caf50;">&#10003; Not banned</span>';
+                                clearBtn.style.display = 'none';
+                            }
+                        }).catch(function () {
+                            document.getElementById('statusBanInfo').textContent = 'Unable to load status';
+                        });
+                    },
+                };
+
+                document.getElementById('btnClearBan').addEventListener('click', function () {
+                    ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('LocalAniDB/ClearBan') }).then(function () {
+                        AniDBConfigurationPage.loadStatus();
+                    });
+                });
+
+                document.getElementById('animeConfigurationPage').addEventListener('pageshow', function () {
+                    AniDBConfigurationPage.loadConfiguration();
+                });
+
+                document.getElementById('animeConfigurationForm').addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    AniDBConfigurationPage.saveConfiguration();
+                });
+            </script>
+        </div>
+    </body>
+    </html>
