@@ -8,6 +8,7 @@ using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Providers;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 {
@@ -15,9 +16,9 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
     {
         private readonly AniDbSeriesProvider _seriesProvider;
 
-        public AniDbSeasonProvider(IApplicationPaths appPaths)
+        public AniDbSeasonProvider(IApplicationPaths appPaths, ILogger<AniDbApiResponseCache> cacheLogger)
         {
-            _seriesProvider = new AniDbSeriesProvider(appPaths);
+            _seriesProvider = new AniDbSeriesProvider(appPaths, cacheLogger);
         }
 
         public async Task<MetadataResult<Season>> GetMetadata(SeasonInfo info, CancellationToken cancellationToken)

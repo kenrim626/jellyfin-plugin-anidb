@@ -20,6 +20,7 @@ using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 {
@@ -31,6 +32,7 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
         // AniDB has very low request rate limits, a minimum of 2 seconds between requests, and an average of 4 seconds between requests
         public static readonly RateLimiter RequestLimiter = new RateLimiter(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(5));
+        private static AniDbApiResponseCache _apiResponseCache;
         private static readonly int[] IgnoredTagIds = { 6, 22, 23, 60, 128, 129, 185, 216, 242, 255, 268, 269, 289 };
         private static readonly Regex AniDbUrlRegex = new Regex(@"https?://anidb.net/\w+(/[0-9]+)? \[(?<name>[^\]]*)\]", RegexOptions.Compiled);
         private static readonly Regex _errorRegex = new(@"<error code=""[0-9]+"">[a-zA-Z]+</error>", RegexOptions.Compiled);
@@ -43,10 +45,11 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
             {"Chief Animation Direction", PersonKind.Director}
         };
 
-        public AniDbSeriesProvider(IApplicationPaths appPaths)
+        public AniDbSeriesProvider(IApplicationPaths appPaths, ILogger<AniDbApiResponseCache> cacheLogger)
         {
             _appPaths = appPaths;
             TitleMatcher = AniDbTitleMatcher.DefaultInstance;
+            _apiResponseCache = new AniDbApiResponseCache(appPaths.CachePath, cacheLogger);
             Current = this;
         }
 
@@ -572,18 +575,18 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
             DeleteXmlFiles(directory);
 
-            var httpClient = Plugin.Instance.GetHttpClient();
-            var url = string.Format(SeriesQueryUrl, ClientName, aid);
-
-            await RequestLimiter.Tick().ConfigureAwait(false);
-            await Task.Delay(Plugin.Instance.Configuration.AniDbRateLimit).ConfigureAwait(false);
-
-            using (var response = await httpClient.GetAsync(url).ConfigureAwait(false))
-            using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
-            using (var reader = new StreamReader(stream, Encoding.UTF8, true))
-            using (var file = File.Open(seriesDataPath, FileMode.Create, FileAccess.Write))
-            using (var writer = new StreamWriter(file))
+            async Task<string> FetchFromApi()
             {
+                var httpClient = Plugin.Instance.GetHttpClient();
+                var url = string.Format(SeriesQueryUrl, ClientName, aid);
+
+                await RequestLimiter.Tick().ConfigureAwait(false);
+                await Task.Delay(Plugin.Instance.Configuration.AniDbRateLimit).ConfigureAwait(false);
+
+                using var response = await httpClient.GetAsync(url).ConfigureAwait(false);
+                using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                using var reader = new StreamReader(stream, Encoding.UTF8, true);
+
                 var text = await reader.ReadToEndAsync().ConfigureAwait(false);
                 text = text.Replace("&#x0;", "");
 
@@ -593,6 +596,14 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
                     throw new Exception("AniDB API error " + errorRegexMatch.Value);
                 }
 
+                return text;
+            }
+
+            var text = await _apiResponseCache.GetOrFetchAnimeDataAsync(aid, FetchFromApi, cancellationToken).ConfigureAwait(false);
+
+            using (var file = File.Open(seriesDataPath, FileMode.Create, FileAccess.Write))
+            using (var writer = new StreamWriter(file))
+            {
                 await writer.WriteAsync(text).ConfigureAwait(false);
             }
 

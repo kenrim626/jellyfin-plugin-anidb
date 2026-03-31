@@ -17,9 +17,9 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
 
         public string Name => "AniDB";
 
-        public AniDbMovieProvider(IApplicationPaths appPaths, ILogger<AniDbMovieProvider> logger)
+        public AniDbMovieProvider(IApplicationPaths appPaths, ILogger<AniDbMovieProvider> logger, ILogger<AniDbApiResponseCache> cacheLogger)
         {
-            _seriesProvider = new AniDbSeriesProvider(appPaths);
+            _seriesProvider = new AniDbSeriesProvider(appPaths, cacheLogger);
             _logger = logger;
         }
 

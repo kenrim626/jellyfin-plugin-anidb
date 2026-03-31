@@ -79,6 +79,13 @@
                                 <span>AniDB Replace Grave Characters</span>
                             </label>
                         </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="chkEnableApiResponseCache" name="chkEnableApiResponseCache" type="checkbox" is="emby-checkbox" />
+                                <span>Enable API Response Cache</span>
+                            </label>
+                            <div class="fieldDescription">Cache raw AniDB API responses for 24 hours. Reduces API calls and avoids rate limiting on repeated scans.</div>
+                        </div>
                         <div>
                             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                                 <span>Save</span>
@@ -107,6 +114,7 @@
                             document.getElementById('chkAniDbRateLimit').value = config.AniDbRateLimit;
                             document.getElementById('chkMaxCacheAge').value = config.MaxCacheAge;
                             document.getElementById('chkAniDbReplaceGraves').checked = config.AniDbReplaceGraves;
+                            document.getElementById('chkEnableApiResponseCache').checked = config.EnableApiResponseCache;
 
                             Dashboard.hideLoadingMsg();
                         });
@@ -127,6 +135,7 @@
                             config.AniDbRateLimit = document.getElementById('chkAniDbRateLimit').value;
                             config.MaxCacheAge = document.getElementById('chkMaxCacheAge').value;
                             config.AniDbReplaceGraves = document.getElementById('chkAniDbReplaceGraves').checked;
+                            config.EnableApiResponseCache = document.getElementById('chkEnableApiResponseCache').checked;
 
                             ApiClient.updatePluginConfiguration(AniDBConfigurationPage.pluginUniqueId, config).then(function (result) {
                                 Dashboard.processPluginConfigurationUpdateResult(result);
