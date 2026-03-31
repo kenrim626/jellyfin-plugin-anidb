@@ -635,6 +635,11 @@ namespace Jellyfin.Plugin.AniDB.Providers.AniDB.Metadata
             var errorRegexMatch = _errorRegex.Match(text);
             if (errorRegexMatch.Success)
             {
+                if (errorRegexMatch.Value.Contains("banned", StringComparison.OrdinalIgnoreCase))
+                {
+                    Plugin.Instance.RequestTracker.SetBanned();
+                }
+
                 _logger.LogError("AniDB API returned an error for anime {Aid}: {Error}", aid, errorRegexMatch.Value);
                 throw new Exception("AniDB API error " + errorRegexMatch.Value);
             }
