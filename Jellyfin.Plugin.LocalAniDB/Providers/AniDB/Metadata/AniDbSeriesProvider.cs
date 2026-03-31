@@ -631,6 +631,17 @@ namespace Jellyfin.Plugin.LocalAniDB.Providers.AniDB.Metadata
 
             var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             response.Dispose();
+            var errorRegexMatch = _errorRegex.Match(text);
+            if (errorRegexMatch.Success)
+            {
+                if (errorRegexMatch.Value.Contains("banned", StringComparison.OrdinalIgnoreCase))
+                {
+                    Plugin.Instance.RequestTracker.SetBanned();
+                }
+
+                _logger.LogError("AniDB API returned an error for anime {Aid}: {Error}", aid, errorRegexMatch.Value);
+                throw new Exception("AniDB API error " + errorRegexMatch.Value);
+            }
 
             using (var file = File.Open(seriesDataPath, FileMode.Create, FileAccess.Write))
             using (var writer = new StreamWriter(file))
