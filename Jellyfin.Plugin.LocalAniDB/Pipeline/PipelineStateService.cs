@@ -145,6 +145,11 @@ namespace Jellyfin.Plugin.LocalAniDB.Pipeline
         public void ResetFetchDedup() => _fetchSeen.Clear();
         public void ResetApplyDedup() => _applySeen.Clear();
 
+        // ── Direct re-enqueue (bypasses dedup, for failed items that were already drained) ──
+        public void RequeueClassification(LibraryChangeItem item) => ClassificationQueue.Writer.TryWrite(item);
+        public void RequeueFetch(AniDbFetchItem item) => FetchQueue.Writer.TryWrite(item);
+        public void RequeueApply(MetadataReadyItem item) => ApplyQueue.Writer.TryWrite(item);
+
         // ── Stats snapshot ────────────────────────────────────────────────────────
 
         public PipelineStats GetStats()

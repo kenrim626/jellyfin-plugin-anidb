@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.LocalAniDB.Pipeline;
 using Jellyfin.Plugin.LocalAniDB.Providers;
+using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Entities.Movies;
@@ -23,11 +24,13 @@ namespace Jellyfin.Plugin.LocalAniDB.Tasks
     public class DetectLibraryChangesTask : IScheduledTask
     {
         private readonly ILibraryManager _libraryManager;
+        private readonly IApplicationPaths _appPaths;
         private readonly ILogger<DetectLibraryChangesTask> _logger;
 
-        public DetectLibraryChangesTask(ILibraryManager libraryManager, ILogger<DetectLibraryChangesTask> logger)
+        public DetectLibraryChangesTask(ILibraryManager libraryManager, IApplicationPaths appPaths, ILogger<DetectLibraryChangesTask> logger)
         {
             _libraryManager = libraryManager;
+            _appPaths = appPaths;
             _logger = logger;
         }
 
@@ -165,10 +168,25 @@ namespace Jellyfin.Plugin.LocalAniDB.Tasks
                 return ChangeType.Modified;
             }
 
-            // Check if it has no AniDB provider ID yet (might have been missed)
+            // Re-queue items that still lack an AniDB provider ID — a previous run
+            // may have failed partway through classification/fetch/apply
             if (!item.ProviderIds.ContainsKey(ProviderNames.AniDb))
             {
                 return ChangeType.New;
+            }
+
+            // Re-queue items whose cached series.xml is missing or empty
+            var existingId = item.ProviderIds.GetOrDefault(ProviderNames.AniDb);
+            if (!string.IsNullOrEmpty(existingId))
+            {
+                var cachePath = System.IO.Path.Combine(
+                    Providers.AniDB.AniDbDataService.GetSeriesDataPath(
+                        _appPaths, existingId),
+                    "series.xml");
+                if (!System.IO.File.Exists(cachePath) || new System.IO.FileInfo(cachePath).Length == 0)
+                {
+                    return ChangeType.Modified;
+                }
             }
 
             return null;

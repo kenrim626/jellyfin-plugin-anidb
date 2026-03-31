@@ -134,10 +134,19 @@ namespace Jellyfin.Plugin.LocalAniDB.Tasks
 
                         _logger.LogDebug("Applied metadata for {Name} (AniDB {Id})", item.Name, item.AniDbId);
                     }
+                    catch (OperationCanceledException)
+                    {
+                        // Re-enqueue this item and all remaining items
+                        pipeline.RequeueApply(item);
+                        for (int i = processed + 1; i < items.Count; i++)
+                            pipeline.RequeueApply(items[i]);
+                        throw;
+                    }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to apply metadata for {Name} (AniDB {Id})", item.Name, item.AniDbId);
+                        _logger.LogWarning(ex, "Failed to apply metadata for {Name} (AniDB {Id}), re-enqueuing", item.Name, item.AniDbId);
                         pipeline.RecordApplyFailed();
+                        pipeline.RequeueApply(item);
                         failed++;
                     }
 

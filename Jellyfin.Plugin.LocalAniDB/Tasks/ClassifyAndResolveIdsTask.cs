@@ -116,10 +116,19 @@ namespace Jellyfin.Plugin.LocalAniDB.Tasks
 
                         pipeline.RecordClassificationItem();
                     }
+                    catch (OperationCanceledException)
+                    {
+                        // Re-enqueue this item and all remaining items
+                        pipeline.RequeueClassification(item);
+                        for (int i = processed + 1; i < items.Count; i++)
+                            pipeline.RequeueClassification(items[i]);
+                        throw;
+                    }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to classify {Name}", item.Name);
+                        _logger.LogWarning(ex, "Failed to classify {Name}, re-enqueuing", item.Name);
                         pipeline.RecordClassificationFailed();
+                        pipeline.RequeueClassification(item);
                     }
 
                     processed++;

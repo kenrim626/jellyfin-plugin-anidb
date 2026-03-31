@@ -176,8 +176,8 @@
 
                     loadStatus: function () {
                         ApiClient.getJSON(ApiClient.getUrl('LocalAniDB/Status')).then(function (status) {
-                            var count = status.RequestsLast24h;
-                            var max = status.MaxDailyRequests;
+                            var count = status.requestsLast24h;
+                            var max = status.maxDailyRequests;
                             var pct = max > 0 ? Math.min(Math.round((count / max) * 100), 100) : 0;
 
                             document.getElementById('statusRequestCount').textContent = count;
@@ -196,9 +196,9 @@
 
                             var banInfo = document.getElementById('statusBanInfo');
                             var clearBtn = document.getElementById('btnClearBan');
-                            if (status.IsBanned) {
-                                var since = new Date(status.BannedSince).toLocaleString();
-                                var until = new Date(status.EstimatedUnban).toLocaleString();
+                            if (status.isBanned) {
+                                var since = new Date(status.bannedSince).toLocaleString();
+                                var until = new Date(status.estimatedUnban).toLocaleString();
                                 banInfo.innerHTML = '<span style="color: #cc3333; font-weight: bold;">&#9888; IP Banned</span>' +
                                     '<br>Banned since: ' + since +
                                     '<br>Estimated unban: ' + until;

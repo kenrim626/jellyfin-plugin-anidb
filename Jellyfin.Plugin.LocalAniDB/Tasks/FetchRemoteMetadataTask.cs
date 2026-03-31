@@ -108,10 +108,19 @@ namespace Jellyfin.Plugin.LocalAniDB.Tasks
 
                         pipeline.RecordRemoteFetchItem();
                     }
+                    catch (OperationCanceledException)
+                    {
+                        // Re-enqueue this item and all remaining items
+                        pipeline.RequeueFetch(item);
+                        for (int i = processed + 1; i < items.Count; i++)
+                            pipeline.RequeueFetch(items[i]);
+                        throw;
+                    }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to fetch metadata for {Name} (AniDB {Id})", item.Name, item.AniDbId);
+                        _logger.LogWarning(ex, "Failed to fetch metadata for {Name} (AniDB {Id}), re-enqueuing", item.Name, item.AniDbId);
                         pipeline.RecordRemoteFetchFailed();
+                        pipeline.RequeueFetch(item);
                         failed++;
                     }
 
